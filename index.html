@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' blob: data:; media-src blob:; frame-src blob:; worker-src 'self'; manifest-src 'self'; object-src 'none'; connect-src 'none'; form-action 'none'">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12233f">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>ফ্যামিলি ভল্ট</title>
+<style>
+:root{color-scheme:light dark;--bg:#eef1f5;--card:#fff;--ink:#12233f;--mut:#5d6b82;--acc:#8a6a1f;--accbg:#12233f;--accfg:#f6e7b8;--line:#d3dae4;--bad:#b3261e}
+@media(prefers-color-scheme:dark){:root{--bg:#0c1524;--card:#15233a;--ink:#e8edf5;--mut:#93a1b8;--acc:#d9b45f;--accbg:#d9b45f;--accfg:#0c1524;--line:#26364f;--bad:#f39a93}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,"Noto Sans Bengali","Hind Siliguri",sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+h1,h2{font-family:Georgia,"Noto Serif Bengali",serif;margin:0}
+input,select,textarea,button{font:inherit;color:inherit}
+input,select,textarea{width:100%;padding:.65rem .8rem;border:1px solid var(--line);border-radius:6px;background:var(--card);margin:.25rem 0 .7rem}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.btn{background:var(--accbg);color:var(--accfg);border:0;border-radius:6px;padding:.7rem 1.1rem;cursor:pointer;font-weight:600}
+.btn.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.bad{background:var(--bad);color:#fff}
+.err{color:var(--bad);min-height:1.5em;margin:.2rem 0}
+#lock{min-height:100vh;display:grid;place-items:center;padding:1.2rem}
+.lockbox{width:min(420px,100%)}
+.lockbox h1{font-size:2rem;margin-bottom:.3rem}
+.lockbox p{color:var(--mut)}
+header{display:flex;gap:.6rem;align-items:center;padding:.8rem 1rem;position:sticky;top:0;background:var(--bg);z-index:5;border-bottom:1px solid var(--line)}
+header h2{font-size:1.25rem;flex:0 0 auto}
+header input{margin:0;flex:1;min-width:0}
+header button{flex:0 0 auto;padding:.55rem .75rem}
+nav{display:flex;overflow-x:auto;border-bottom:1px solid var(--line);padding:0 .5rem}
+nav button{background:none;border:0;border-bottom:3px solid transparent;padding:.7rem .9rem;cursor:pointer;color:var(--mut);white-space:nowrap}
+nav button[aria-selected=true]{color:var(--ink);border-color:var(--acc);font-weight:700}
+main{padding:1rem;max-width:1000px;margin:0 auto;padding-bottom:6rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.8rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:0;text-align:left;cursor:pointer;overflow:hidden;display:flex;flex-direction:column}
+.card .th{height:110px;display:grid;place-items:center;font-size:2.2rem;background:var(--bg)}
+.card img{width:100%;height:110px;object-fit:cover}
+.card .tx{padding:.5rem .65rem}
+.card b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card small{color:var(--mut)}
+.mo{margin:1.4rem 0 .5rem;color:var(--acc);font-weight:700}
+.empty{color:var(--mut);text-align:center;padding:3rem 1rem}
+#fab{position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom));width:3.4rem;height:3.4rem;border-radius:50%;font-size:1.8rem;padding:0;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);width:min(640px,94vw);max-height:90vh;padding:1rem}
+dialog::backdrop{background:rgba(5,10,20,.7)}
+dialog img,dialog video,dialog iframe{max-width:100%;border-radius:6px}
+dialog iframe{width:100%;height:60vh;border:1px solid var(--line)}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem}
+pre{white-space:pre-wrap;word-break:break-word;font:inherit}
+label{color:var(--mut);font-size:.9rem}
+</style>
+</head>
+<body>
+<div id="lock"></div>
+<div id="app" hidden>
+  <header><h2>ফ্যামিলি ভল্ট</h2><input id="q" type="search" placeholder="খুঁজুন" aria-label="খুঁজুন"><button class="btn alt" id="gear" aria-label="সেটিংস">⚙</button><button class="btn" id="lk">লক</button></header>
+  <nav id="tabs" role="tablist"></nav>
+  <main id="main"></main>
+  <button class="btn" id="fab" aria-label="নতুন যোগ করুন">+</button>
+</div>
+<dialog id="dlg"></dialog>
+<script>
+const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder(),CH=1<<20;
+const TABS=[['gallery','গ্যালারি'],['vault','জরুরি কাগজ'],['diary','ডায়েরি'],['timeline','টাইমলাইন']];
+const CATS={gallery:'ছবি / ভিডিও / অডিও',vault:'জরুরি কাগজ (NID, পাসপোর্ট, দলিল…)',diary:'ডায়েরি / নোট'};
+let db,MK=null,CK={},who=null,items=[],urls=[],tab='gallery',timer,S={min:2,hide:true};
+const CATK=Object.keys(CATS),LBL=Object.fromEntries(TABS),allowed=()=>who.role==='admin'?CATK:CATK.filter(c=>CK[c]);
+const h=(t,a={},...c)=>{const e=document.createElement(t);for(const k in a){k==='class'?e.className=a[k]:k.startsWith('on')?e.addEventListener(k.slice(2),a[k]):e[k]=a[k]}c.flat().forEach(x=>x!=null&&e.append(x));return e};
+const BL={},getDl=async()=>{try{if(window.claude){const d=await claude.use('downloads');if(d)return d}}catch{}return{save:async({filename,data})=>{const a=h('a',{href:URL.createObjectURL(data),download:filename.replace(/\.vault\.zip$/,'.vault')});document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},60000)}}};
+const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
+const b64=u=>{let s='';for(let i=0;i<u.length;i+=8192)s+=String.fromCharCode.apply(null,u.subarray(i,i+8192));return btoa(s)};
+const ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const fmt=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(0)+' KB':n<1073741824?(n/1048576).toFixed(1)+' MB':(n/1073741824).toFixed(2)+' GB';
+const today=()=>new Date().toISOString().slice(0,10);
+
+/* ---------- storage (IndexedDB, only ciphertext) ---------- */
+const idb=()=>new Promise((ok,no)=>{const r=indexedDB.open('familyvault',2);r.onupgradeneeded=()=>{const d=r.result;for(const [n,o] of [['meta',{}],['items',{keyPath:'id'}],['chunks',{}],['users',{keyPath:'id'}]])if(!d.objectStoreNames.contains(n))d.createObjectStore(n,o)};r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const rq=r=>new Promise((ok,no)=>{r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const st=(s,m='readonly')=>db.transaction(s,m).objectStore(s);
+const get=(s,k)=>rq(st(s).get(k)),all=s=>rq(st(s).getAll()),put=(s,v,k)=>rq(st(s,'readwrite').put(v,k)),del=(s,k)=>rq(st(s,'readwrite').delete(k)),clr=s=>rq(st(s,'readwrite').clear());
+
+/* ---------- crypto: PBKDF2 -> KEK wraps random 256-bit master key; AES-256-GCM ---------- */
+async function kek(pw,salt){const b=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:600000,hash:'SHA-256'},b,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function seal(key,data,aad){const iv=rnd(12),p={name:'AES-GCM',iv};if(aad)p.additionalData=aad;const c=new Uint8Array(await crypto.subtle.encrypt(p,key,data)),o=new Uint8Array(12+c.length);o.set(iv);o.set(c,12);return o}
+async function unseal(key,buf,aad){buf=new Uint8Array(buf);const p={name:'AES-GCM',iv:buf.slice(0,12)};if(aad)p.additionalData=aad;return new Uint8Array(await crypto.subtle.decrypt(p,key,buf.slice(12)))}
+const mkKey=raw=>crypto.subtle.importKey('raw',raw,'AES-GCM',false,['encrypt','decrypt']);
+const ckImport=(raw,ex)=>crypto.subtle.importKey('raw',raw,'AES-GCM',ex,['encrypt','decrypt']);
+async function ensureCK(){let m=(await get('meta','ck'))||{},ch=false;CK={};for(const c of CATK){let raw;if(m[c])raw=await unseal(MK,m[c]);else{raw=rnd(32);m[c]=await seal(MK,raw);ch=true}CK[c]=await ckImport(raw,true);raw.fill(0)}if(ch)await put('meta',m,'ck')}
+
+/* ---------- lock screen ---------- */
+async function boot(){
+  if(!window.crypto||!crypto.subtle||!window.indexedDB){$('#lock').append(h('p',{class:'err'},'এই ব্রাউজারে এনক্রিপশন চালু নেই। Chrome বা Firefox-এ খুলুন।'));return}
+  db=await idb();S=(await get('meta','s'))||S;renderLock(!(await get('meta','k')))
+}
+async function renderLock(setup){
+  const us=setup?[]:await all('users'),sel=h('select',{'aria-label':'কে'},h('option',{value:''},'অ্যাডমিন (আপনি)'),us.map(u=>h('option',{value:u.id},u.name+(u.role==='guest'?' (অতিথি)':' (সদস্য)'))));
+  const pw=h('input',{type:'password',placeholder:'মাস্টার পাসওয়ার্ড',autocomplete:'off'}),pw2=h('input',{type:'password',placeholder:'আবার লিখুন',autocomplete:'off'}),msg=h('p',{class:'err'});
+  const go=async()=>{
+    msg.textContent='';
+    if(setup){if(pw.value.length<10)return msg.textContent='পাসওয়ার্ড কমপক্ষে ১০ অক্ষরের হতে হবে।';if(pw.value!==pw2.value)return msg.textContent='দুটি পাসওয়ার্ড মেলেনি।'}
+    btn.disabled=true;btn.textContent='অপেক্ষা করুন…';
+    try{
+      if(setup){const salt=rnd(16),raw=rnd(32);await put('meta',{salt,w:await seal(await kek(pw.value,salt),raw)},'k');MK=await mkKey(raw);raw.fill(0)}
+      else if(!sel.value){const m=await get('meta','k'),raw=await unseal(await kek(pw.value,m.salt),m.w);MK=await mkKey(raw);raw.fill(0)}else{const u=await get('users',sel.value),k=await kek(pw.value,u.salt);await unseal(k,u.chk);CK={};for(const c in u.g)CK[c]=await ckImport(await unseal(k,u.g[c]),false);who={role:u.role,id:u.id,name:u.name}}
+      if(MK){who={role:'admin'};await ensureCK()}pw.value=pw2.value='';await enter()
+    }catch(e){msg.textContent='পাসওয়ার্ড ভুল।'}
+    btn.disabled=false;btn.textContent=setup?'ভল্ট তৈরি করুন':'আনলক'
+  };
+  const btn=h('button',{class:'btn',onclick:go},setup?'ভল্ট তৈরি করুন':'আনলক');
+  pw.addEventListener('keydown',e=>e.key==='Enter'&&(setup?pw2.focus():go()));pw2.addEventListener('keydown',e=>e.key==='Enter'&&go());
+  $('#lock').replaceChildren(h('div',{class:'lockbox'},h('h1',{},'ফ্যামিলি ভল্ট'),h('p',{},setup?'এটি অ্যাডমিনের (আপনার) মাস্টার পাসওয়ার্ড। ভুলে গেলে ডেটা ফেরত পাওয়ার উপায় নেই, তাই কোথাও নিরাপদে লিখে রাখুন।':'সব ফাইল এই ডিভাইসেই এনক্রিপ্ট করা আছে। আনলক করতে পাসওয়ার্ড দিন।'),us.length?sel:null,pw,setup?pw2:null,msg,btn));
+  $('#lock').hidden=false;$('#app').hidden=true;setTimeout(()=>pw.focus(),50)
+}
+async function enter(){$('#lock').hidden=true;$('#app').hidden=false;await load();tab=allowed()[0]||'timeline';$('#fab').hidden=who.role==='guest'||!allowed().length;$('#gear').hidden=who.role!=='admin';render();arm()}
+function lock(){MK=null;CK={};who=null;items=[];urls.forEach(URL.revokeObjectURL);urls=[];Object.keys(BL).forEach(k=>delete BL[k]);$('#dlg').close();$('#main').replaceChildren();$('#q').value='';clearTimeout(timer);get('meta','k').then(m=>renderLock(!m))}
+function arm(){clearTimeout(timer);if(who&&S.min>0)timer=setTimeout(lock,S.min*60000)}
+['pointerdown','keydown','scroll'].forEach(e=>addEventListener(e,()=>who&&arm(),{passive:true}));
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&who&&S.hide)lock()});
+
+/* ---------- items ---------- */
+async function load(){
+  const raw=await all('items');items=[];
+  for(const r of raw){const key=r.c?CK[r.c]:(who.role==='admin'?MK:null);if(!key)continue;try{items.push({id:r.id,n:r.n,key,...JSON.parse(dec.decode(await unseal(key,r.m)))})}catch{}}
+}
+async function thumb(f){
+  if(!f.type.startsWith('image/'))return'';
+  try{const b=await createImageBitmap(f),s=240/Math.max(b.width,b.height,240),c=document.createElement('canvas');c.width=Math.round(b.width*s);c.height=Math.round(b.height*s);c.getContext('2d').drawImage(b,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.7)}catch{return''}
+}
+async function saveItem(id,n,meta){await put('items',{id,n,c:meta.cat,m:await seal(CK[meta.cat],enc.encode(JSON.stringify(meta)))})}
+async function addFile(f,cat,tags,date){
+  const id=crypto.randomUUID(),n=Math.max(1,Math.ceil(f.size/CH));
+  for(let i=0;i<n;i++){const k=id+':'+i;await put('chunks',await seal(CK[cat],new Uint8Array(await f.slice(i*CH,(i+1)*CH).arrayBuffer()),enc.encode(k)),k)}
+  await saveItem(id,n,{cat,name:f.name,mime:f.type,size:f.size,tags,date,thumb:await thumb(f)})
+}
+async function remove(it){for(let i=0;i<it.n;i++)await del('chunks',it.id+':'+i);await del('items',it.id);items=items.filter(x=>x.id!==it.id)}
+async function blobOf(it){
+  const parts=[];for(let i=0;i<it.n;i++){const k=it.id+':'+i;parts.push(await unseal(it.key,await get('chunks',k),enc.encode(k)))}
+  const b=new Blob(parts,{type:it.mime||'application/octet-stream'}),u=URL.createObjectURL(b);urls.push(u);BL[u]=b;return u
+}
+
+/* ---------- UI ---------- */
+const icon=i=>i.cat==='diary'?'📝':(i.mime||'').startsWith('video')?'🎞':(i.mime||'').startsWith('audio')?'🎵':(i.mime||'').includes('pdf')?'📄':i.cat==='vault'?'🗂':'📁';
+function render(){
+  $('#tabs').replaceChildren(...TABS.filter(([k])=>k==='timeline'||allowed().includes(k)).map(([k,l])=>h('button',{role:'tab','aria-selected':k===tab,onclick:()=>{tab=k;render()}},l)));
+  const q=$('#q').value.trim().toLowerCase(),m=$('#main');m.replaceChildren();
+  const list=items.filter(i=>(tab==='timeline'||i.cat===tab)&&(!q||[i.name,i.text,i.tags].join(' ').toLowerCase().includes(q))).sort((a,b)=>b.date.localeCompare(a.date));
+  if(!list.length){m.append(h('p',{class:'empty'},q?'কিছু পাওয়া যায়নি।':who.role==='guest'||!allowed().length?'এখানে এখনো কিছু নেই।':'এখানে কিছু নেই। নিচের + বোতামে চেপে প্রথম ফাইল যোগ করুন।'));return}
+  let g=null,box=null;
+  for(const it of list){
+    if(tab==='timeline'){const mo=it.date.slice(0,7);if(mo!==g){g=mo;m.append(h('h2',{class:'mo'},mo));box=h('div',{class:'grid'});m.append(box)}}
+    else if(!box){box=h('div',{class:'grid'});m.append(box)}
+    box.append(h('button',{class:'card',onclick:()=>open(it)},it.thumb?h('img',{src:it.thumb,alt:''}):h('div',{class:'th'},icon(it)),h('div',{class:'tx'},h('b',{},it.name),h('small',{},it.date+(it.size?' • '+fmt(it.size):'')))))
+  }
+}
+$('#q').addEventListener('input',render);
+const dlg=$('#dlg');
+const show=(...c)=>{dlg.replaceChildren(...c);if(!dlg.open)dlg.showModal()};
+const closeBtn=()=>h('button',{class:'btn alt',onclick:()=>dlg.close()},'বন্ধ করুন');
+async function open(it){
+  const meta=h('p',{},h('small',{},[it.date,it.size?fmt(it.size):'',it.tags].filter(Boolean).join(' • ')));
+  const rm=who.role==='guest'?null:h('button',{class:'btn bad',onclick:async()=>{if(confirm('এটি স্থায়ীভাবে মুছে ফেলবেন?')){await remove(it);dlg.close();render()}}},'মুছুন');
+  if(it.cat==='diary'){show(h('h2',{},it.name),meta,h('pre',{},it.text),h('div',{class:'row'},rm,closeBtn()));return}
+  show(h('h2',{},it.name),meta,h('p',{},'ডিক্রিপ্ট হচ্ছে…'));
+  try{
+    const u=await blobOf(it),t=it.mime||'',v=t.startsWith('image/')?h('img',{src:u,alt:it.name}):t.startsWith('video/')?h('video',{src:u,controls:true}):t.startsWith('audio/')?h('audio',{src:u,controls:true}):t==='application/pdf'?h('iframe',{src:u}):h('p',{},'এই ফাইলের প্রিভিউ নেই। ডাউনলোড করুন।');
+    show(h('h2',{},it.name),meta,v,h('div',{class:'row'},h('button',{class:'btn alt',onclick:async()=>{const d=await getDl();if(!d)return alert('এই ভিউতে ডাউনলোড চালু নেই।');try{await d.save({filename:it.name,data:BL[u]})}catch(e){if(e&&e.code!=='declined')alert('এই ধরনের ফাইল এখানে ডাউনলোড করা যায় না।')}}},'ডাউনলোড'),rm,closeBtn()))
+  }catch{show(h('p',{class:'err'},'ফাইল ডিক্রিপ্ট করা যায়নি।'),closeBtn())}
+}
+$('#fab').onclick=()=>{
+  const cat=h('select',{},Object.entries(CATS).filter(([k])=>allowed().includes(k)).map(([k,l])=>h('option',{value:k,selected:k===(allowed().includes(tab)?tab:allowed()[0])},l)));
+  const file=h('input',{type:'file',multiple:true}),title=h('input',{placeholder:'শিরোনাম'}),text=h('textarea',{rows:6,placeholder:'লিখুন…'}),tags=h('input',{placeholder:'ট্যাগ, কমা দিয়ে আলাদা করুন'}),date=h('input',{type:'date',value:today()}),msg=h('p',{class:'err'});
+  const dBox=h('div',{},title,text),fBox=h('div',{},file);
+  const sync=()=>{dBox.hidden=cat.value!=='diary';fBox.hidden=cat.value==='diary'};cat.onchange=sync;sync();
+  const ok=h('button',{class:'btn',onclick:async()=>{
+    try{
+      ok.disabled=true;
+      if(cat.value==='diary'){if(!title.value.trim())throw'শিরোনাম দিন।';await saveItem(crypto.randomUUID(),0,{cat:'diary',name:title.value.trim(),text:text.value,tags:tags.value,date:date.value,size:0})}
+      else{if(!file.files.length)throw'ফাইল বেছে নিন।';let i=0;for(const f of file.files){msg.textContent=`এনক্রিপ্ট হচ্ছে… ${++i}/${file.files.length}`;await addFile(f,cat.value,tags.value,date.value)}}
+      await load();dlg.close();render()
+    }catch(e){msg.textContent=typeof e==='string'?e:'সংরক্ষণ করা যায়নি (জায়গা শেষ?)।';ok.disabled=false}
+  }},'এনক্রিপ্ট করে সংরক্ষণ');
+  show(h('h2',{},'নতুন যোগ করুন'),h('label',{},'ধরন'),cat,dBox,fBox,h('label',{},'ট্যাগ'),tags,h('label',{},'তারিখ'),date,msg,h('div',{class:'row'},ok,closeBtn()))
+};
+$('#lk').onclick=lock;
+
+/* ---------- settings, .vault backup / restore ---------- */
+$('#gear').onclick=()=>{
+  const min=h('select',{},[[0,'বন্ধ'],[1,'১ মিনিট'],[2,'২ মিনিট'],[5,'৫ মিনিট'],[15,'১৫ মিনিট']].map(([v,l])=>h('option',{value:v,selected:v===S.min},l)));
+  const hide=h('input',{type:'checkbox',checked:S.hide,style:'width:auto;margin-right:.5rem'});
+  const imp=h('input',{type:'file',accept:'.vault,.zip'}),msg=h('p',{class:'err'});
+  min.onchange=hide.onchange=async()=>{S={min:+min.value,hide:hide.checked};await put('meta',S,'s');arm()};
+  imp.onchange=async()=>{if(!imp.files[0])return;if(!confirm('বর্তমান ভল্ট মুছে ব্যাকআপ দিয়ে বদলে যাবে। ব্যাকআপের পাসওয়ার্ডে আনলক করতে হবে। এগিয়ে যাবেন?'))return;try{msg.textContent='ইমপোর্ট হচ্ছে…';await importVault(imp.files[0]);dlg.close();lock()}catch(e){msg.textContent='ফাইলটি সঠিক .vault নয়।'}};
+  show(h('h2',{},'সেটিংস'),h('p',{},h('small',{},'অ্যাপটি কোনো নেটওয়ার্ক অনুরোধ পাঠাতে পারে না (ব্রাউজার-স্তরে বন্ধ করা)।')),h('label',{},'নিষ্ক্রিয় থাকলে অটো-লক'),min,h('label',{},hide,'ট্যাব/অ্যাপ থেকে বের হলেই লক'),h('hr'),h('div',{class:'row'},h('button',{class:'btn',onclick:usersDlg},'ব্যবহারকারী ও অনুমতি')),h('p',{},'ব্যাকআপ ফাইল ইতিমধ্যে এনক্রিপ্টেড। এক্সটার্নাল ড্রাইভে রাখুন।'),h('div',{class:'row'},h('button',{class:'btn',onclick:()=>exportVault(msg)},'.vault এক্সপোর্ট')),h('label',{},'.vault ইমপোর্ট'),imp,msg,h('div',{class:'row'},closeBtn()))
+};
+const packU=u=>({id:u.id,name:u.name,role:u.role,salt:b64(u.salt),chk:b64(u.chk),g:Object.fromEntries(Object.entries(u.g).map(([c,v])=>[c,b64(v)]))});
+const unpackU=u=>({id:u.id,name:u.name,role:u.role,salt:ub(u.salt),chk:ub(u.chk),g:Object.fromEntries(Object.entries(u.g).map(([c,v])=>[c,ub(v)]))});
+async function usersDlg(){
+  const us=await all('users');
+  show(h('h2',{},'ব্যবহারকারী ও অনুমতি'),h('p',{},h('small',{},'অ্যাডমিন = আপনি (সব কিছু, ব্যাকআপ ও ব্যবহারকারী পরিচালনা)।')),
+    us.length?h('div',{class:'grid'},us.map(u=>h('button',{class:'card',onclick:()=>userForm(u)},h('div',{class:'tx'},h('b',{},u.name),h('small',{},(u.role==='guest'?'অতিথি (শুধু দেখা) • ':'সদস্য • ')+(Object.keys(u.g).map(c=>LBL[c]).join(', ')||'কোনো অনুমতি নেই')))))):h('p',{class:'empty'},'এখনো কেউ নেই।'),
+    h('div',{class:'row'},h('button',{class:'btn',onclick:()=>userForm()},'নতুন যোগ করুন'),h('button',{class:'btn alt',onclick:()=>$('#gear').onclick()},'পেছনে')))
+}
+function userForm(u){
+  const name=h('input',{placeholder:'নাম',value:u?u.name:''}),role=h('select',{},h('option',{value:'member',selected:!!u&&u.role==='member'},'সদস্য (দেখা ও যোগ করা)'),h('option',{value:'guest',selected:!!u&&u.role==='guest'},'অতিথি (শুধু দেখা)')),pw=h('input',{type:'password',placeholder:'এই ব্যক্তির পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)',autocomplete:'new-password'}),msg=h('p',{class:'err'});
+  const cb=CATK.map(c=>h('input',{type:'checkbox',checked:!!(u&&u.g[c]),style:'width:auto;margin-right:.5rem'}));
+  const ok=h('button',{class:'btn',onclick:async()=>{
+    if(!name.value.trim())return msg.textContent='নাম দিন।';
+    if(pw.value.length<8)return msg.textContent='পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।';
+    ok.disabled=true;msg.textContent='অপেক্ষা করুন…';
+    const salt=rnd(16),k=await kek(pw.value,salt),g={};
+    for(const [i,c] of CATK.entries())if(cb[i].checked)g[c]=await seal(k,new Uint8Array(await crypto.subtle.exportKey('raw',CK[c])));
+    await put('users',{id:u?u.id:crypto.randomUUID(),name:name.value.trim(),role:role.value,salt,chk:await seal(k,enc.encode('ok')),g});
+    usersDlg()
+  }},'সংরক্ষণ');
+  show(h('h2',{},u?'ব্যবহারকারী সম্পাদনা':'নতুন ব্যবহারকারী'),h('label',{},'নাম'),name,h('label',{},'ভূমিকা'),role,h('label',{},'পাসওয়ার্ড'+(u?' (সংরক্ষণে আবার দিতে হবে)':'')),pw,h('label',{},'কোন বিভাগ দেখতে পারবে'),h('div',{style:'margin:.4rem 0 .8rem'},CATK.map((c,i)=>h('label',{style:'display:block;color:var(--ink)'},cb[i],CATS[c]))),msg,
+    h('div',{class:'row'},ok,u?h('button',{class:'btn bad',onclick:async()=>{if(confirm('এই ব্যবহারকারীকে মুছে ফেলবেন?')){await del('users',u.id);usersDlg()}}},'মুছুন'):null,h('button',{class:'btn alt',onclick:usersDlg},'পেছনে')))
+}
+async function exportVault(msg){
+  msg.textContent='ব্যাকআপ তৈরি হচ্ছে…';
+  const k=await get('meta','k'),raw=await all('items'),ck=(await get('meta','ck'))||{},us=await all('users');
+  const head=enc.encode(JSON.stringify({v:2,salt:b64(k.salt),w:b64(k.w),ck:Object.fromEntries(Object.entries(ck).map(([c,v])=>[c,b64(v)])),users:us.map(packU),items:raw.map(r=>({id:r.id,n:r.n,c:r.c||'',m:b64(r.m)}))}));
+  const len=new Uint8Array(4);new DataView(len.buffer).setUint32(0,head.length);
+  const parts=[enc.encode('FVLT1'),len,head];
+  for(const r of raw)for(let i=0;i<r.n;i++){const c=await get('chunks',r.id+':'+i),l=new Uint8Array(4);new DataView(l.buffer).setUint32(0,c.length);parts.push(l,c)}
+  const d=await getDl();if(!d){msg.textContent='এই ভিউতে ডাউনলোড চালু নেই।';return}
+  try{await d.save({filename:'family-'+today()+'.vault.zip',data:new Blob(parts)});msg.textContent=''}catch(e){msg.textContent=e&&e.code==='declined'?'':'ব্যাকআপ সংরক্ষণ করা যায়নি।'}
+}
+async function importVault(f){
+  const rd=async(o,n)=>new Uint8Array(await f.slice(o,o+n).arrayBuffer());
+  if(dec.decode(await rd(0,5))!=='FVLT1')throw 0;
+  const hl=new DataView((await rd(5,4)).buffer).getUint32(0),H=JSON.parse(dec.decode(await rd(9,hl)));let o=9+hl;
+  await clr('items');await clr('chunks');await clr('users');
+  await put('meta',{salt:ub(H.salt),w:ub(H.w)},'k');for(const u of H.users||[])await put('users',unpackU(u));if(H.ck)await put('meta',Object.fromEntries(Object.entries(H.ck).map(([c,v])=>[c,ub(v)])),'ck');else await del('meta','ck');
+  for(const it of H.items){
+    for(let i=0;i<it.n;i++){const l=new DataView((await rd(o,4)).buffer).getUint32(0);await put('chunks',await rd(o+4,l),it.id+':'+i);o+=4+l}
+    await put('items',{id:it.id,n:it.n,...(it.c?{c:it.c}:{}),m:ub(it.m)})
+  }
+}
+boot();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+</script>
+</body>
+</html>
